@@ -26,11 +26,13 @@ func main() {
 	}
 	r := mux.NewRouter()
 	datastore := store.New(db)
-	service := service.New(datastore)
-	handler := delivery.New(service)
+	s := service.New(datastore)
+	handler := delivery.New(s)
 
-	r.HandleFunc("/customer", handler.GetByName).Methods(http.MethodGet)
-	r.HandleFunc("/customer/{id}", handler.GetById).Methods(http.MethodGet)
+	r.HandleFunc("/customer", handler.GetByName).Queries("name", "{name}").Methods(http.MethodGet)
+	r.HandleFunc("/customer", handler.GetAll).Methods(http.MethodGet)
+	r.HandleFunc("/customer/{id:[0-9]+}", handler.GetById).Methods(http.MethodGet)
+
 	r.HandleFunc("/customer", handler.PostCustomer).Methods(http.MethodPost)
 	r.HandleFunc("/customer/{id}", handler.PutCustomer).Methods(http.MethodPut)
 	r.HandleFunc("/customer/{id}", handler.DeleteCustomer).Methods(http.MethodDelete)

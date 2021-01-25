@@ -2,131 +2,49 @@ package service
 
 import "C"
 import (
-	"encoding/json"
 	"layered/architecture/entities"
 	"layered/architecture/store"
-	"net/http"
 )
 
 type CustomerService struct {
 	store store.Customer
 }
 
-func New(customer store.Customer) Customer {
+func New(customer store.Customer) CustomerService {
 	return CustomerService{store: customer}
 }
 
-func (c CustomerService) GetByID(w http.ResponseWriter, id int) {
-	if id <= 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Invalid ID"))
-		return
-	}
+func (c CustomerService) GetByID(id int) (entities.Customer, error){
 	resp, err := c.store.GetByID(id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode([]entities.Customer(nil))
-	} else {
-		if resp.ID == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode([]entities.Customer(nil))
-		} else {
-			json.NewEncoder(w).Encode(resp)
-		}
-	}
+	return resp, err
 }
 
-func (c CustomerService) GetByName(w http.ResponseWriter, name string) {
-	if len(name) <= 0 {
-		resp, err := c.store.GetByName("")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(resp)
-			return
-		}
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
+func (c CustomerService) GetAll() ([]entities.Customer, error){
+	resp, err := c.store.GetAll()
+	return resp, err
+}
+
+func (c CustomerService) GetByName(name string) ([]entities.Customer, error){
 	resp, err := c.store.GetByName(name)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
-	if len(resp) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-	}
-	json.NewEncoder(w).Encode(resp)
+	return resp, err
 }
 
-func (c CustomerService) CreateCustomer(w http.ResponseWriter, cust entities.Customer) {
+func (c CustomerService) Create(cust entities.Customer) (entities.Customer, int, error){
 
-	if cust.Name == "" || cust.DOB == "" || cust.Address.StreetName == "" || cust.Address.City == "" || cust.Address.State == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Missing fields entered"))
-
-	} else if timestamp := DateSubstract(cust.DOB); timestamp/(3600*24*12*30) < 18 {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Sorry, Age<18"))
-
+	 if timestamp := DateSubstract(cust.DOB); timestamp/(3600*24*12*30) < 18 {
+	 	return entities.Customer{}, timestamp/(3600*24*12*30), nil
 	} else {
-		cust, err := c.store.Create(cust)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Oh snap, Internal Server Error"))
-			return
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(cust)
+		res, err := c.store.Create(cust)
+		return res, timestamp/(3600*24*12*30), err
 	}
 }
 
-func (c CustomerService) UpdateCustomer(w http.ResponseWriter, id int, customer entities.Customer) {
-
-	if customer.ID != 0 || customer.DOB != "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Can't update Id or DOB"))
-		return
-	}
-
-	if customer.Name == "" && customer.Address.State == "" && customer.Address.City == "" && customer.Address.StreetName == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("No data"))
-		return
-
-	} else {
+func (c CustomerService) Update(id int, customer entities.Customer) (entities.Customer, error){
 		cust, err := c.store.Update(id, customer)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Something went wrong in query."))
-			return
-		}
-
-		if cust.ID == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("This record never exists."))
-			return
-		}
-
-		json.NewEncoder(w).Encode(cust)
-	}
+		return cust, err
 }
 
-func (c CustomerService) DeleteCustomer(w http.ResponseWriter, id int) {
-
+func (c CustomerService) Delete(id int) (entities.Customer, error){
 	customer, err := c.store.Delete(id)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Something went wrong"))
-		return
-	}
-
-	if customer.ID == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("This record not found in our database"))
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	return customer, err
 }
